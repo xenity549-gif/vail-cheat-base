@@ -1,6 +1,3 @@
 # vail-cheat-base
 # Just to clarify, I’m not responsible for how anyone chooses to use this. This is intended for educational and learning purposes only.
-this  is a very bare bones base for vail including no recoil,vail combat unlocker,and inf ammo
-now this is meant for you to learn and use as a base 
-also for the vail devs to learn
-# this is NOT for you to just download and compile this is not like that this is just the main.cpp get the sdk and everything else yourself if you under stand cpp a decent bit this shouldnt be a problem for you i will include a compiled dll but that will be the only one and not to be updated unless i feel like it 
+# HI i dont see alot of people cheating in vail so here is a src to get started lol i will include a compiled dll in this repo for the src you have to get the sdk yourself and thats it 
