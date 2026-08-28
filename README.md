@@ -1,4 +1,5 @@
 # vail-cheat-base
+# Just to clarify, I’m not responsible for how anyone chooses to use this. This is intended for educational and learning purposes only.
 this  is a very bare bones base for vail including no recoil,vail combat unlocker,and inf ammo
 now this is meant for you to learn and use as a base 
 also for the vail devs to learn
