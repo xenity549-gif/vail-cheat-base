@@ -38,7 +38,7 @@ static uintptr_t ScanProcessEvent()
     uintptr_t base = (uintptr_t)GetModuleHandle(nullptr);
     return base + SDK::Offsets::ProcessEvent;
 }
-// here you can see im obv doing no recoil these are comments for me and you :D
+
 static void ApplyNoRecoil(SDK::ABP_Firearm_C* Gun)
 {
     if (!Gun) return;
@@ -53,7 +53,7 @@ static void ApplyNoRecoil(SDK::ABP_Firearm_C* Gun)
     Gun->RotationVerticalRecoil = 0;
     Gun->MovementPenalty = -100.0f;
 }
-//inf ammo 
+
 static void ApplyInfAmmo(SDK::ACMagazine* Mag)
 {
     if (!Mag) return;
@@ -63,7 +63,7 @@ static void ApplyInfAmmo(SDK::ACMagazine* Mag)
         Mag->Ammo = 30;
     }
 }
-// Apply features to all actors in the world 
+
 static void ApplyFeaturesToAllActors()
 {
     if (!g_LocalPawn) return;
@@ -83,11 +83,8 @@ static void ApplyFeaturesToAllActors()
         if (bNoRecoil && Actor->IsA(SDK::ABP_Firearm_C::StaticClass()))
         {
             auto* Gun = static_cast<SDK::ABP_Firearm_C*>(Actor);
-            if (Gun && Gun->CurrentOwningPlayer == g_LocalPawn)
-            {
-                ApplyNoRecoil(Gun);
-                GunCount++;
-            }
+            ApplyNoRecoil(Gun);
+            GunCount++;
         }
 
         if (bInfAmmo && Actor->IsA(SDK::ACMagazine::StaticClass()))
@@ -114,8 +111,8 @@ void Hook_GetVAILCombatOwnership(SDK::UObject* ctx, void* stack, void* result)
             orig(ctx, stack, result);
         }
 
-        if (result && g_combatOwnershipEnabled && !IsBadWritePtr(result, sizeof(uint8_t)))
-            *static_cast<uint8_t*>(result) = 2;
+        if (result && g_combatOwnershipEnabled && !IsBadWritePtr(result, sizeof(int)))
+            *static_cast<int*>(result) = 2;
     }
     catch (...)
     {
@@ -198,7 +195,7 @@ static void InstallCombatOwnershipHook()
     {
     }
 }
-//basically combat unlocker just named dev unlock
+
 void ApplyDevUnlock(SDK::APlayerController* pc)
 {
     if (!pc) return;
@@ -210,15 +207,16 @@ void ApplyDevUnlock(SDK::APlayerController* pc)
 
     auto* ps = reinterpret_cast<SDK::ACPlayerState*>(psBase);
     uint8_t* p = reinterpret_cast<uint8_t*>(ps);
-    constexpr uint8_t SUB_ONYX = 5;
+    constexpr int SUB_ONYX = 5;
     *(p + 0x0390) = SUB_ONYX;
     *reinterpret_cast<bool*>(p + 0x0400) = true;
 }
-//hooked procss event this is very needed 
+
 void __fastcall HookedProcessEvent(SDK::UObject* pObject, SDK::UFunction* pFunction, void* pParams)
 {
     static SDK::UWorld* World = nullptr;
     static int frameCounter = 0;
+    static DWORD lastApplyTime = 0;
 
     frameCounter++;
 
@@ -246,13 +244,40 @@ void __fastcall HookedProcessEvent(SDK::UObject* pObject, SDK::UFunction* pFunct
         }
     }
 
-    if (g_LocalPawn && bNoRecoil && pObject && pObject->IsA(SDK::ABP_Firearm_C::StaticClass()))
+    if (bNoRecoil)
     {
-        auto* Gun = static_cast<SDK::ABP_Firearm_C*>(pObject);
-        if (Gun && Gun->CurrentOwningPlayer == g_LocalPawn)
+        DWORD currentTime = GetTickCount();
+        if (currentTime - lastApplyTime >= 1000)
         {
-            ApplyNoRecoil(Gun);
+            lastApplyTime = currentTime;
+
+            auto* World2 = SDK::UWorld::GetWorld();
+            if (World2 && World2->PersistentLevel)
+            {
+                auto& Actors = World2->PersistentLevel->Actors;
+                int GunCount = 0;
+
+                for (int i = 0; i < Actors.Num(); i++)
+                {
+                    SDK::AActor* Actor = Actors[i];
+                    if (Actor && Actor->Class && Actor->IsA(SDK::ABP_Firearm_C::StaticClass()))
+                    {
+                        ApplyNoRecoil(static_cast<SDK::ABP_Firearm_C*>(Actor));
+                        GunCount++;
+                    }
+                }
+
+                if (GunCount > 0)
+                {
+                    ConsolePrint("[VAIL] No Recoil applied to " + std::to_string(GunCount) + " guns\n");
+                }
+            }
         }
+    }
+
+    if (bNoRecoil && pObject && pObject->IsA(SDK::ABP_Firearm_C::StaticClass()))
+    {
+        ApplyNoRecoil(static_cast<SDK::ABP_Firearm_C*>(pObject));
     }
 
     if (g_LocalPawn && bInfAmmo && pObject && pObject->IsA(SDK::ACMagazine::StaticClass()))
@@ -311,14 +336,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
         g_Console = GetStdHandle(STD_OUTPUT_HANDLE);
 
         ConsolePrint("[VAIL] Loaded\n");
-        ConsolePrint("[VAIL] No Recoil is on \n");
-        ConsolePrint("[VAIL] Infinite Ammo is on \n");
-        ConsolePrint("[VAIL] combat unlocker is on \n");
+        ConsolePrint("[VAIL] No Recoil is on\n");
+        ConsolePrint("[VAIL] Infinite Ammo is on\n");
+        ConsolePrint("[VAIL] Combat Unlocker is on\n");
         ConsolePrint("[VAIL] END - Exit\n");
 
         if (MH_Initialize() == MH_OK)
         {
-            //i love you minhook <3
             ConsolePrint("[VAIL] MinHook initialized\n");
 
             uintptr_t peAddr = ScanProcessEvent();
@@ -330,8 +354,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
                 ConsolePrint("[VAIL] ProcessEvent is hooked\n");
             }
         }
-
-   
     }
     else if (reason == DLL_PROCESS_DETACH)
     {
